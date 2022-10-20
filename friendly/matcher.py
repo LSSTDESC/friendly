@@ -24,11 +24,8 @@ class Matcher:
         raise(NotImplementedError)
     
     
-class FoF(Matcher):        
-    pass
-    
-class KDTree(Matcher):  
-    pass 
+
+
         
         
     

@@ -20,6 +20,3 @@ class Pruner:
         raise NotImplementedError
     
 
-class EllipseOverlap(Pruner):
-    def __init__(self):
-        pass
