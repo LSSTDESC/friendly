@@ -5,31 +5,28 @@ import numpy as np
 class EllipseOverlap(Pruner):
     def __init__(self, tune_params):
         self.fudge = tune_params.get('fudge', 1.)
-    
-    
+        self.pixel_scale = tune_params.get('pixel_scale', 0.2)
     
     def __precompute_one__(self, cat1, cat2, group):
-        assert(["a", "b", "theta", "x0", "y0"] in cat1.columns)
-        assert(["a", "b", "theta", "x0", "y0"] in cat2.columns)
-        p1 = ab2AB(a, b, theta, x0, y0)
+        assert(["size_semi_major", "size_semi_minor", "theta_orientation", "ra", "dec"] in cat1.columns)
+        assert(["size_semi_major", "size_semi_minor", "theta_orientation", "ra", "dec"] in cat2.columns)
     
     def __call__(self, cat1, cat2, groups)->List[Group]:
-        # for now, assuming ra, dec rather than pixel coordinates
+        # check for ellipse overlapping in pixel coordinates.
+	# put ellipse 1 in the origin of pixel coordinate, and put ellipse 2 according to its relative position wrt. ellipse 1
         
         for group in groups:
             for i1 in group.idx1:
-                abt = moments2ab(*[cat1.get_quantity(i1, k) for k in ['Ixx', 'Iyy', 'Ixy']])
+                a1, b1, theta1, ra1, dec1 = [cat1.get_quantity(i1, k) for k in ['semi_major', 'semi_minor', 'theta_orientation', 'ra', 'dec']]
+		p1 = ab2AB(a1, b1, theta1, 0, 0)
                 for i2 in group.idx2:
-                    p2 = moments2ab(*[cat2.get_quantity(i2, k) for k in ['Ixx', 'Iyy', 'Ixy']])
-                    is_overlapping(p1, p2)
+                	a2, b2, theta2, ra2, dec2 = [cat2.get_quantity(i2, k) for k in ['semi_major', 'semi_minor', 'theta_orientation', 'ra', 'dec']]
+			dx = (ra2 - ra1) * np.cos(np.radians( (dec1+dec2) / 2 )) * 3600 / self.pixel_scale
+			dy = (dec2 - dec1) * 3600 / self.pixel_scale
+			p2 = ab2AB(a2, b2, theta2, dx, dy)
+                    	is_overlapping(p1, p2)
         
         
-
-def ellipse_equation(x, y, params):
-    
-    A, B, C, D, E, F = params
-    
-    return A*x**2 + B*y**2 + 2*C*x*y + 2*D*x + 2*E*y + F
 
 def ab2AB(a, b, theta, x0, y0):
     
@@ -74,31 +71,10 @@ def is_overlapping(p1, p2):
     else:
         return True
     
-# def moments2AB(Ixx, Iyy, Ixy, x0, y0):
-    
-#     ### Ixx, Iyy, Ixy in same unit as (x0, y0) ###
-   
-#     pi_ab = 2 * np.sqrt(np.pi) * np.power(Ixx*Iyy - Ixy**2, 1/4)
-
-#     A = 4*Iyy/pi_ab
-#     B = 4*Ixx/pi_ab
-#     C = -8*Ixy/pi_ab
-
-#     D = -2*A*x0 - C*y0
-#     E = -C*x0 - 2*B*y0
-
-#     F = A*x0**2 + C*x0*y0 + B*y0**2 - (pi_ab/np.pi)**2
-#     C, D, E = C/2, D/2, E/2
-    
-#     return [A, B, C, D, E, F]
-
-
 def moments2ab(Ixx, Iyy, Ixy):
     
     ### Ixx, Iyy, Ixy in same unit as (x0, y0) ###
    
-    pi_ab = 2 * np.sqrt(np.pi) * np.power(Ixx*Iyy - Ixy**2, 1/4)
-    
     theta2 = np.arctan2(2*Ixy, Ixx-Iyy)
     theta2[theta2<0] += 2*np.pi
     
@@ -108,7 +84,8 @@ def moments2ab(Ixx, Iyy, Ixy):
     cos = np.cos(theta)
     cos2t = cos**2 - sin**2
     
-    a_square = 4*(Ixx*cos**2 - Iyy*sin**2) / (pi_ab * cos2t)
-    b_square = 4*(Iyy*cos**2 - Ixx*sin**2) / (pi_ab * cos2t)
+    a_square = 2*np.log(2)*(Ixx*cos**2 - Iyy*sin**2) / cos2t
+    b_square = 2*np.log(2)*(Iyy*cos**2 - Ixx*sin**2) / cos2t
     
     return [np.sqrt(a_square), np.sqrt(b_square), np.degrees(theta)]
+
