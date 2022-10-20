@@ -17,10 +17,10 @@ class EllipseOverlap(Pruner):
         
         for group in groups:
             for i1 in group.idx1:
-                a1, b1, theta1, ra1, dec1 = [cat1.get_quantity(i1, k) for k in ['semi_major', 'semi_minor', 'theta_orientation', 'ra', 'dec']]
+                a1, b1, theta1, ra1, dec1 = [cat1.get_quantity(i1, k) for k in ['size_semi_major', 'size_semi_minor', 'theta_orientation', 'ra', 'dec']]
 		p1 = ab2AB(a1, b1, theta1, 0, 0)
                 for i2 in group.idx2:
-                	a2, b2, theta2, ra2, dec2 = [cat2.get_quantity(i2, k) for k in ['semi_major', 'semi_minor', 'theta_orientation', 'ra', 'dec']]
+                	a2, b2, theta2, ra2, dec2 = [cat2.get_quantity(i2, k) for k in ['size_semi_major', 'size_semi_minor', 'theta_orientation', 'ra', 'dec']]
 			dx = (ra2 - ra1) * np.cos(np.radians( (dec1+dec2) / 2 )) * 3600 / self.pixel_scale
 			dy = (dec2 - dec1) * 3600 / self.pixel_scale
 			p2 = ab2AB(a2, b2, theta2, dx, dy)
