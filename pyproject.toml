@@ -1,0 +1,20 @@
+[tool.poetry]
+authors = ["Ismael Mendoza <imendoza@umich.edu>"]
+description = "Matching algorithms for DESC galaxy detection and characterization algorithm development"
+license = "MIT"
+name = "friendly"
+readme = "README.md"
+version = "0.1.0"
+
+[tool.poetry.dependencies]
+matplotlib = "^3.6.2"
+networkx = "^2.8.8"
+numpy = "^1.23.4"
+python = "^3.8"
+
+[tool.poetry.group.dev.dependencies]
+jupyter = "^1.0.0"
+
+[build-system]
+build-backend = "poetry.core.masonry.api"
+requires = ["poetry-core"]
