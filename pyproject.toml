@@ -11,6 +11,7 @@ matplotlib = "^3.6.2"
 networkx = "^2.8.8"
 numpy = "^1.23.4"
 python = "^3.8"
+astropy = "^5.1.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
