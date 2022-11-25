@@ -20,3 +20,5 @@ class FoF(Matcher):
             idx2= list(rows['row_index'][~rows['is_cat1']])
             groups.append([idx1, idx2])
 
+        return groups
+
