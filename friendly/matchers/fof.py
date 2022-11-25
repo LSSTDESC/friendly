@@ -10,12 +10,12 @@ class FoF(Matcher):
         
     def __call__(self, cat1, cat2, *args) -> List[Group]:
         results = FoFCatalogMatching.match(catalog_dict={'cat1':cat1, 'cat2':cat2}, linking_lengths=self.linking_length)
-        results['is_object'] = (results['catalog_key']=='object')
+        results['is_cat1'] = (results['catalog_key']=='cat1')
         res = results.drop('catalog_key', axis=1)
 
         groups = []
         for group_id, rows in res.groupby('group_id'):
-            id_gal = list(rows['row_index'][~rows['is_object']])
-            id_obj = list(rows['row_index'][rows['is_object']])
-            groups.append([id_gal, id_obj])
+            idx1 = list(rows['row_index'][rows['is_cat1']])
+            idx2= list(rows['row_index'][~rows['is_cat1']])
+            groups.append([idx1, idx2])
 
