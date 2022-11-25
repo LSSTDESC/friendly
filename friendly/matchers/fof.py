@@ -10,12 +10,12 @@ class FoF(Matcher):
         
     def __call__(self, cat1, cat2, *args) -> List[Group]:
         results = FoFCatalogMatching.match(catalog_dict={'cat1':cat1, 'cat2':cat2}, linking_lengths=self.linking_length)
+        results['is_object'] = (results['catalog_key']=='object')
+        res = results.drop('catalog_key', axis=1)
 
-        # first we need to know which rows are from the truth catalog and which are from the object
-        mask1 = results['catalog_key'] == 'cat1'
-        mask2 = ~mask1
-        idx1 = 
-
-        # then np.bincount will give up the number of id occurrences (like historgram but with integer input)
-        n_groups = results['group_id'].max() + 1
+        groups = []
+        for group_id, rows in res.groupby('group_id'):
+            id_gal = list(rows['row_index'][~rows['is_object']])
+            id_obj = list(rows['row_index'][rows['is_object']])
+            groups.append([id_gal, id_obj])
 
