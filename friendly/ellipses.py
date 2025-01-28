@@ -296,7 +296,29 @@ def overlap_area_MC(param1: dict, param2: dict, xlim: list=[0,1], ylim: list=[0,
     return A_total_ellipses, A_overlap
 
 
-def plot_shape(x0, y0, rough_size, params, c='b', ls='-', ax=None, linewidth=2): #plot function
+def plot_shape(x0: float, y0: float, rough_size: float, params: dict, c: str='b', ls: str='-', ax=None, linewidth: float=2):
+    """
+    Plot an ellipse contour based on the ellipse equation defined by the A,B,C,D,E,F parameters.
+
+    Parameters
+    ----------
+    x0 : float
+        X-coordinate of the center of the ellipse.
+    y0 : float
+        Y-coordinate of the center of the ellipse.
+    rough_size : float
+        Approximate half-width of the plotting region.
+    params : dict or array-like
+        A,B,C,D,E,F parameters defining the ellipse.
+    c : str, optional
+        Color of the contour line (default is 'b' for blue).
+    ls : str, optional
+        Line style of the contour (default is '-' for solid line).
+    ax : matplotlib.axes.Axes, optional
+        Axes object on which to plot the contour. If None, the function assumes an existing plot.
+    linewidth : float, optional
+        Line width of the contour (default is 2).
+    """
     
     x = np.linspace(x0 - rough_size, x0 + rough_size, 100)
     y = np.linspace(y0 - rough_size, y0 + rough_size, 100)

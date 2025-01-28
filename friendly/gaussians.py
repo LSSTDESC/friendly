@@ -60,7 +60,7 @@ def gaussian_square_int(infos: dict, F: float=1) -> float:
 
 def gaussian_overlap(infos1: dict, infos2: dict, F1: float=1, F2: float=1) -> float:
     """
-    Calculates the overlap between two 2D Gaussian profiles, specified by their x, y, a, b, theta infotmation. 
+    Calculates the overlap between two 2D Gaussian profiles, specified by their x, y, a, b, theta information. 
     The function computes the overlap of these two Gaussians and returns a value that quantifies the degree 
     to which the two Gaussians intersect.
 
