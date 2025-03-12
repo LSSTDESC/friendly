@@ -20,6 +20,24 @@ def ellipse_equation(x: float, y: float, param: dict) -> float:
     return A*x**2 + B*y**2 + 2*C*x*y + 2*D*x + 2*E*y + F
 
 
+def ellipse_lambda(param: dict) -> float:
+    """
+    Returns a lambda function to evaluates the equation of an ellipse with specified A, B, C, D, E, F ellipse 
+    parameters.
+
+    Args:
+        param (dict): A, B, C, D, E, F ellipse parameters.
+
+    Returns:
+        lambda: f(x,y) to evaluate the ellipse equation
+    """
+    
+    A, B, C, D, E, F = param
+
+    fn = lambda x,y : A*x**2 + B*y**2 + 2*C*x*y + 2*D*x + 2*E*y + F
+    
+    return fn
+
 def moments2ab(Ixx: float, Iyy: float, Ixy: float) -> list:
     """
     Convert second moments Ixx, Iyy, Ixy of luminous flux in a, b and theta ellipse parameters.
@@ -80,7 +98,7 @@ def ellipse_infos(group: list, truth_cat: dict, obj_cat: dict, dc2_type: str="ob
     return pd.DataFrame(infos, index=idx)
 
 
-def ab2AB(x: float, y: float, a: float, b: float, theta: float) -> list:
+def ab2AB(x: float, y: float, a: float, b: float, theta: float, sky=False) -> list:
     """
     Convert the major axis (a), minor axis (b) and orientation angle (theta) into A, B, C, D, E, F ellipse parameters.
 
@@ -100,12 +118,43 @@ def ab2AB(x: float, y: float, a: float, b: float, theta: float) -> list:
     A = (a*sin)**2 + (b*cos)**2
     B = (a*cos)**2 + (b*sin)**2
     C = 2*(b**2 - a**2)*sin*cos
+    if sky:
+        C *= -1
     D = -2*A*x - C*y
     E = -C*x - 2*B*y
     F = A*x**2 + C*x*y + B*y**2 - (a*b)**2
     C, D, E = C/2, D/2, E/2
     
     return [A, B, C, D, E, F]
+
+def ab2AB_np(x: float, y: float, a: float, b: float, theta: float, sky=False):
+    """
+    Convert the major axis (a), minor axis (b) and orientation angle (theta) into A, B, C, D, E, F ellipse parameters.
+
+    Args:
+        x (float): x-axis position of the ellipse center (in pixels)
+        y (float): y-axis position of the ellipse center (in pixels)
+        a (float): major axis (in pixels)
+        b (float): minor axis (in pixels)
+        theta (float): orientation angle (in degrees)
+
+    Returns:
+        numpy array: A, B, C, D, E, F ellipse parameters.
+    """
+    sin = np.sin(np.radians(theta))
+    cos = np.cos(np.radians(theta))
+    
+    A = (a*sin)**2 + (b*cos)**2
+    B = (a*cos)**2 + (b*sin)**2
+    C = 2*(b**2 - a**2)*sin*cos
+    if sky:
+        C *= -1
+    D = -2*A*x - C*y
+    E = -C*x - 2*B*y
+    F = A*x**2 + C*x*y + B*y**2 - (a*b)**2
+    C, D, E = C/2, D/2, E/2
+    
+    return np.array([A, B, C, D, E, F])
 
 
 def ellipse_parameters(infos: dict) -> dict:
