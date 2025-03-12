@@ -258,6 +258,9 @@ def is_overlapping(p1: dict, p2: dict) -> bool:
         bool: Returns "True" if the two ellipses overlap, "False" otherwise.
     """
     
+    if (np.isnan(p1)).any() or (np.isnan(p2)).any():
+        return False
+
     A1, B1, C1, D1, E1, F1 = p1
     A2, B2, C2, D2, E2, F2 = p2
         
