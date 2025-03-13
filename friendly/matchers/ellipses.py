@@ -50,13 +50,20 @@ class FEllipse(Matcher):
                 g_start = gn
                 ground_group = []
                 space_group = []
+                # Very unhappy with how this is written to guarantee using python int
+                # instead of np.int
                 for i, g_ndx in enumerate(gr):
                     if is_overlapping(ellipse1[:,g_start], ellipse1[:,g_ndx]):
-                        ground_group.append(g_ndx)
+                        ids = cat1.get_quantity(cat1.ndx_name, g_ndx)
+                        clean_ids = FEllipse.cast_int(ids)
+                        ground_group.append(clean_ids)
 
                 for i, s_ndx in enumerate(sr):
                     if is_overlapping(ellipse1[:, g_start], ellipse2[:, s_ndx]):
-                        space_group.append(s_ndx)
+                        ids = cat2.get_quantity(cat2.ndx_name, s_ndx)
+                        clean_ids = FEllipse.cast_int(ids)
+                        space_group.append(clean_ids)
+
                 groups.append(Group(ground_group, space_group))
                 weights.append([1 for i in range(len(space_group))]) 
             else:
@@ -64,3 +71,15 @@ class FEllipse(Matcher):
                 weights.append([1 for i in range(len(sr))]) # Could I just use np.ones_like(sr)?
         return groups, weights
 
+
+    @staticmethod
+    def cast_int(ids):
+        if isinstance(ids, int):
+            return ids
+        if isinstance(ids, np.integer):
+            return int(ids)
+        if isinstance(ids, np.floating):
+            return int(ids)
+        if isinstance(ids, list):
+            return [int(i) for i in ids]
+        print(ids, type(ids))
