@@ -10,9 +10,10 @@ import friendly.ellipses as ellipses
 import friendly.gaussians as gaussians
 import friendly.entropy as entropy
 import friendly.matching as matching
+from friendly.utils import Group
 
 
-def draw_nodes_edges(group: list, param: dict, infos, link_type: str='ellipse'):
+def draw_nodes_edges(group: Group, param: dict, infos, link_type: str='ellipse'):
     """
     Initializes a NetworkX graph.
     Draws the nodes from galaxy and object row indices.
@@ -28,9 +29,9 @@ def draw_nodes_edges(group: list, param: dict, infos, link_type: str='ellipse'):
         NetworkX graph: NetworkX graph of the corresponding Friends-of-Friends group.
 
     """
-    idx1 = group[0]
-    idx2 = group[1]
-    
+    idx1 = group.idx1
+    idx2 = group.idx2    
+
     G = nx.Graph()
     
     #Nodes
@@ -52,15 +53,12 @@ def draw_nodes_edges(group: list, param: dict, infos, link_type: str='ellipse'):
     return G
 
 
-
-def add_magnitude(G, truth_cat: dict, obj_cat: dict):
+def add_magnitude(G, cat1: FCatalog, cat2: FCatalog, params: dict ):
     """
     Add galaxy and object magnitudes in the nodes of the NetworkX graph G.
 
     Args:
         G (NetworkX graph): NetworkX graph corresponding to one Friends-of-Friends group
-        truth_cat (dict): Truth (galaxy) catalog
-        object_cat (dict): Object catalog
 
     Returns:
         None
@@ -70,22 +68,22 @@ def add_magnitude(G, truth_cat: dict, obj_cat: dict):
 
     if len(gal_nodes) == 0:
         for m in obj_nodes:
-            G.nodes[m]['magnitude'] = obj_cat['mag_i_cModel'][m]
+            G.nodes[m]['magnitude'] = cat1.get_quantity(params['MAG1'], m)
 
     elif len(obj_nodes) == 0:
         for n in gal_nodes:
-            G.nodes[n]['magnitude'] = truth_cat['mag_i'][n]
+            G.nodes[n]['magnitude'] = cat2.get_quantity(params['MAG2'], n)
 
     else: 
         for n in gal_nodes:
-            G.nodes[n]['magnitude'] = truth_cat['mag_i'][n]
+            G.nodes[n]['magnitude'] = cat2.get_quantity(params['MAG2'], n)
         for m in obj_nodes:
-            G.nodes[m]['magnitude'] = obj_cat['mag_i_cModel'][m]
+            G.nodes[m]['magnitude'] = cat1.get_quantity(params['MAG1'], m)
     
     return None
 
 
-def add_blendedness(G, obj_cat: dict):
+def add_blendedness(G, cat1: FCatalog, params: dict):
     """
     Add object blendedness in the corresponding nodes of the NetworkX graph G.
 
@@ -101,7 +99,7 @@ def add_blendedness(G, obj_cat: dict):
 
     if len(obj_nodes) > 0:
         for m in obj_nodes:
-            G.nodes[m]['blendedness'] = obj_cat['blendedness'][m]
+            G.nodes[m]['blendedness'] = cat1.get_quantity(params['BLENDEDNESS1'], m)
 
     else:
         return None
@@ -178,8 +176,7 @@ def add_purity(G, infos: dict):
     return None
 
 
-
-def add_overlap_fraction(G, param, infos, link_type='ellipse'):
+def add_overlap_fraction(G, e_conic, e_params, link_type='ellipse', eps=1):
     """
     Computes and adds the "overlap fraction" attribute to the edges of the NetworkX graph G.
     The overlap fraction is calculated based on the overlap surface of ellipses corresponding to the nodes of G.
@@ -198,11 +195,13 @@ def add_overlap_fraction(G, param, infos, link_type='ellipse'):
             for i, j, data in G.edges(data=True):
     
                 #overlap fraction on the corresponded edges
-                eps = 100
-                x_center = np.mean([infos[i][0], infos[j][0]]) #x mean position of the two ellipses
-                y_center = np.mean([infos[i][1], infos[j][1]]) #y mean position of the two ellipses
+                x_center = np.mean([infos[i]['RA'], infos[j]['RA']]) #x mean position of the two ellipses
+                y_center = np.mean([infos[i]['DEC'], infos[j]['DEC']]) #y mean position of the two ellipses
+
+                # x_center = np.mean([infos[i][0], infos[j][0]]) #x mean position of the two ellipses
+                # y_center = np.mean([infos[i][1], infos[j][1]]) #y mean position of the two ellipses
     
-                A_total, A_overlap = ellipses.overlap_area_MC(param[i], param[j], [x_center-eps, x_center+eps], [y_center-eps, y_center+eps])
+                A_total, A_overlap = ellipses.overlap_area_MC(e_conic[i], e_conic[j], [x_center-eps, x_center+eps], [y_center-eps, y_center+eps])
                 fraction = A_overlap/A_total
                 G[i][j]['overlap_fraction'] = fraction
 
@@ -214,8 +213,6 @@ def add_overlap_fraction(G, param, infos, link_type='ellipse'):
         
     
     return None
-
-
 
 def NetworkX_graph(group: list, truth_cat, obj_cat, infos: dict, param: dict, link_type: str='ellipse'):
     """

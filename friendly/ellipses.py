@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from utils import Group, FCatalog
+from astropy.table import Table
 
 def ellipse_equation(x: float, y: float, param: dict) -> float:
     """
@@ -65,69 +66,32 @@ def moments2ab(Ixx: float, Iyy: float, Ixy: float) -> list:
     
     return [np.sqrt(a_squared), np.sqrt(b_squared), np.degrees(theta)]
 
-
-def ellipse_infos(group: list, truth_cat: dict, obj_cat: dict, dc2_type: str="object") -> dict:
-    """
-    Recover the pixel position centre (x, y), the major axis (a), minor axis (b) and orientation
-    angle (theta) of the galaxy or object ellipses.
-
-    Args:
-        group (list): Friends-of-Friends group
-        truth_cat (dict): Truth (galaxy) catalog
-        obj_cat (dict): Object catalog
-        dc2_type (str, optional): "galaxy" or "object". Defaults to "object".
-
-    Returns:
-        dict: Pandas Dataframe containing the x, y, a, b (in pixels) and theta (in degrees) ellipse parameters.
-    """
-    keys = ['x', 'y', 'a', 'b', 'theta']
-    infos = {k:[] for k in keys}
-    
-    if dc2_type == 'galaxy':
-        idx = group[0]
-        psf = PSF(group, obj_cat)
-        out = deg2pix(group, truth_cat, obj_cat, psf)
-        infos = {k:j for (k,j) in zip(keys, out)}
-
-    if dc2_type == 'object':
-        idx = group[1]
-        infos['x'] = obj_cat['x'][idx]
-        infos['y'] = obj_cat['y'][idx]
-        infos['a'], infos['b'], infos['theta'] = moments2ab(obj_cat['Ixx_pixel_i'][idx], 
-                                                            obj_cat['Iyy_pixel_i'][idx], obj_cat['Ixy_pixel_i'][idx])
-
-    return pd.DataFrame(infos, index=idx)
-
-
-
-def f_ellipse_infos(group: list, cat1: FCatalog, cat2: FCatalog,  naming: dict) -> dict:
+def ellipse_infos(group: list, cat1: FCatalog, cat2: FCatalog, params: dict) -> dict:
     """
     Recover the sky position centre (x, y), the major axis (a), minor axis (b) and orientation
     angle (theta) of the galaxy or object ellipses.
 
     Args:
         group (list): Friends-of-Friends group
-        truth_cat (dict): Truth (galaxy) catalog
-        obj_cat (dict): Object catalog
-        dc2_type (str, optional): "galaxy" or "object". Defaults to "object".
-
+        cat1 (FCatalog): Friendly Catalog of "ground" objects
+        cat2 (FCatalog): Friendly Catalog of "truth" objects
+        params (dict): Dictionary labelling the objects in cat1 and cat2
     Returns:
-        dict: Pandas Dataframe containing the x, y, a, b (in arcseconds) and theta (in degrees) ellipse parameters.
+        dict: Dictionary containing the x, y, a, b (in arcseconds) and theta (in degrees) ellipse parameters.
     """
-    keys = ['X', 'Y', 'A', 'B', 'THETA']
-    infos = {k:[] for k in keys}
+    keys = ['RA', 'DEC', 'A', 'B', 'THETA']
+    infos1 = {k:[] for k in keys}
+    infos2 = {k:[] for k in keys}
 
     for idx1 in group.idx1:
+        for k in keys:
+            infos1[k].append(cat1.get_quantity(params[k+'1'], idx1))
 
+    for idx2 in group.idx2:
+        for k in keys:
+            infos2[k].append(cat2.get_quantity(params[k+'2'], idx2))
 
-    
-
-    
-
-    
-    
-
-
+    return infos1, infos2
 
 def ab2AB(x: float, y: float, a: float, b: float, theta: float, sky=False) -> list:
     """
@@ -187,8 +151,7 @@ def ab2AB_np(x: float, y: float, a: float, b: float, theta: float, sky=False):
     
     return np.array([A, B, C, D, E, F])
 
-
-def ellipse_parameters(infos: dict) -> dict:
+def ellipse_parameters(infos: dict, sky = True) -> dict:
     """
     Return the A, B, C, D, E, F ellipse parameters, based on the x, y, a, b, theta ellipse provided information.
 
@@ -198,11 +161,12 @@ def ellipse_parameters(infos: dict) -> dict:
     Returns:
         dict: Pandas Dataframe containing A, B, C, D, E, F ellipse parameters.
     """
-    out = pd.DataFrame(ab2AB(infos['x'], infos['y'], infos['a'], infos['b'], infos['theta']))
-    out.index = ['A', 'B', 'C', 'D', 'E', 'F']
-    
-    return out.T
+    e_params = ab2AB_np(infos['RA'], infos['Y'], infos['A'], infos['B'],infos['THETA'], sky=sky)
 
+    out = Table(e_params)
+    # out.index = ['A', 'B', 'C', 'D', 'E', 'F']
+    
+    return out
 
 def PSF(group: list, cat: dict) -> float:
     """
