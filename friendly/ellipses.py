@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from utils import Group, FCatalog
 
 def ellipse_equation(x: float, y: float, param: dict) -> float:
     """
@@ -96,6 +97,36 @@ def ellipse_infos(group: list, truth_cat: dict, obj_cat: dict, dc2_type: str="ob
                                                             obj_cat['Iyy_pixel_i'][idx], obj_cat['Ixy_pixel_i'][idx])
 
     return pd.DataFrame(infos, index=idx)
+
+
+
+def f_ellipse_infos(group: list, cat1: FCatalog, cat2: FCatalog,  naming: dict) -> dict:
+    """
+    Recover the sky position centre (x, y), the major axis (a), minor axis (b) and orientation
+    angle (theta) of the galaxy or object ellipses.
+
+    Args:
+        group (list): Friends-of-Friends group
+        truth_cat (dict): Truth (galaxy) catalog
+        obj_cat (dict): Object catalog
+        dc2_type (str, optional): "galaxy" or "object". Defaults to "object".
+
+    Returns:
+        dict: Pandas Dataframe containing the x, y, a, b (in arcseconds) and theta (in degrees) ellipse parameters.
+    """
+    keys = ['X', 'Y', 'A', 'B', 'THETA']
+    infos = {k:[] for k in keys}
+
+    for idx1 in group.idx1:
+
+
+    
+
+    
+
+    
+    
+
 
 
 def ab2AB(x: float, y: float, a: float, b: float, theta: float, sky=False) -> list:

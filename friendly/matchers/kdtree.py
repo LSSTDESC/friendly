@@ -35,7 +35,9 @@ class FKDTree(Matcher):
         groups = []
         weights = []
         for gr, sr in zip(ground_results, space_results):
-            groups.append(Group(gr, sr))
+            ground_ndx = cat1.get_quantity(cat1.ndx_name, gr).tolist()
+            space_ndx = cat2.get_quantity(cat2.ndx_name, sr).tolist()
+            groups.append(Group(ground_ndx, space_ndx))
             weights.append([1 for i in range(len(sr))]) # Could I just use np.ones_like(sr)?
             # TODO: Reweight such that sum is 1 
 
