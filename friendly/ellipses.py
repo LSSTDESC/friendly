@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-from utils import Group, FCatalog
+from .utils import Group, FCatalog
 from astropy.table import Table
 
 def ellipse_equation(x: float, y: float, param: dict) -> float:
@@ -83,13 +83,25 @@ def ellipse_infos(group: list, cat1: FCatalog, cat2: FCatalog, params: dict) -> 
     infos1 = {k:[] for k in keys}
     infos2 = {k:[] for k in keys}
 
+    # Need to enforce these as integers (maybe on matching side...)
+    infos1['ID'] = group.idx1
+    infos2['ID'] = group.idx2
+
     for idx1 in group.idx1:
         for k in keys:
-            infos1[k].append(cat1.get_quantity(params[k+'1'], idx1))
+            infos1[k].append(cat1.get_quantity(params[k+'1'], idx1, ndx=True))
 
     for idx2 in group.idx2:
         for k in keys:
-            infos2[k].append(cat2.get_quantity(params[k+'2'], idx2))
+            infos2[k].append(cat2.get_quantity(params[k+'2'], idx2, ndx=True))
+
+    # Extremely clunky and inelegant way to get this into numpy arrays....
+    # for k in keys:
+    #     infos1[k] = np.array(infos1[k]) 
+    #     infos2[k] = np.array(infos2[k]) 
+
+    infos1 = Table(infos1)
+    infos2 = Table(infos2)
 
     return infos1, infos2
 
@@ -161,10 +173,12 @@ def ellipse_parameters(infos: dict, sky = True) -> dict:
     Returns:
         dict: Pandas Dataframe containing A, B, C, D, E, F ellipse parameters.
     """
-    e_params = ab2AB_np(infos['RA'], infos['Y'], infos['A'], infos['B'],infos['THETA'], sky=sky)
+    e_params = ab2AB_np(infos['RA'], infos['DEC'], infos['A'], infos['B'],infos['THETA'], sky=sky)
 
-    out = Table(e_params)
-    # out.index = ['A', 'B', 'C', 'D', 'E', 'F']
+    out = Table(e_params.T, names=['A', 'B', 'C', 'D', 'E', 'F'] )
+    out['ID'] = infos['ID']
+
+    out.add_index('ID')
     
     return out
 
@@ -253,8 +267,9 @@ def is_overlapping(p1: dict, p2: dict) -> bool:
         bool: Returns "True" if the two ellipses overlap, "False" otherwise.
     """
     
-    if (np.isnan(p1)).any() or (np.isnan(p2)).any():
-        return False
+    # Need to find a fix for this step....
+    # if (np.isnan(p1)).any() or (np.isnan(p2)).any():
+     #    return False
 
     A1, B1, C1, D1, E1, F1 = p1
     A2, B2, C2, D2, E2, F2 = p2

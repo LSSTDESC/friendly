@@ -46,29 +46,59 @@ class FEllipse(Matcher):
         weights = []
         gndx = np.arange(len(ground_results))
         for gr, sr, gn in zip(ground_results, space_results, gndx):
-            if len(gr) >= 1 and len(sr) >= 1:
-                g_start = gn
-                ground_group = []
-                space_group = []
-                # Very unhappy with how this is written to guarantee using python int
-                # instead of np.int
+            g_start = gn
+            ground_group = []
+            space_group = []
+
+            e1_start = ellipse1[:, g_start]
+
+            if np.isnan(e1_start).any():
+                groups.append(Group(ground_group, space_group))
+                weights.append([1 for i in range(len(space_group))]) 
+                continue
+
+            if len(gr) >= 1:
                 for i, g_ndx in enumerate(gr):
-                    if is_overlapping(ellipse1[:,g_start], ellipse1[:,g_ndx]):
+                    e2 = ellipse1[:, g_ndx]
+                    if np.isnan(e2).any():
+                        continue
+                    if is_overlapping(e1_start, e2):
                         ids = cat1.get_quantity(cat1.ndx_name, g_ndx)
                         clean_ids = FEllipse.cast_int(ids)
                         ground_group.append(clean_ids)
 
+
+            if len(sr) >= 1:
                 for i, s_ndx in enumerate(sr):
-                    if is_overlapping(ellipse1[:, g_start], ellipse2[:, s_ndx]):
+                    e2 = ellipse2[:, s_ndx]
+                    if np.isnan(e2).any():
+                        continue
+                    if is_overlapping(e1_start, e2):
                         ids = cat2.get_quantity(cat2.ndx_name, s_ndx)
                         clean_ids = FEllipse.cast_int(ids)
                         space_group.append(clean_ids)
 
-                groups.append(Group(ground_group, space_group))
-                weights.append([1 for i in range(len(space_group))]) 
-            else:
-                groups.append(Group(gr, sr))
-                weights.append([1 for i in range(len(sr))]) # Could I just use np.ones_like(sr)?
+#             if len(gr) >= 1 and len(sr) >= 1:
+#                 g_start = gn
+#                 ground_group = []
+#                 space_group = []
+#                 # Very unhappy with how this is written to guarantee using python int
+#                 # instead of np.int
+#                 for i, g_ndx in enumerate(gr):
+#                     if is_overlapping(ellipse1[:,g_start], ellipse1[:,g_ndx]):
+#                         ids = cat1.get_quantity(cat1.ndx_name, g_ndx)
+#                         clean_ids = FEllipse.cast_int(ids)
+#                         ground_group.append(clean_ids)
+# 
+#                 for i, s_ndx in enumerate(sr):
+#                     if is_overlapping(ellipse1[:, g_start], ellipse2[:, s_ndx]):
+#                         ids = cat2.get_quantity(cat2.ndx_name, s_ndx)
+#                         clean_ids = FEllipse.cast_int(ids)
+#                         space_group.append(clean_ids)
+
+            groups.append(Group(ground_group, space_group))
+            weights.append([1 for i in range(len(space_group))]) 
+
         return groups, weights
 
 

@@ -5,12 +5,14 @@ from itertools import combinations
 from tqdm.auto import tqdm
 import sys
 
+from astropy.table import vstack
+
 sys.path.append('../')
 import friendly.ellipses as ellipses
 import friendly.gaussians as gaussians
 import friendly.entropy as entropy
 import friendly.matching as matching
-from friendly.utils import Group
+from friendly.utils import Group, FCatalog
 
 
 def draw_nodes_edges(group: Group, param: dict, infos, link_type: str='ellipse'):
@@ -35,18 +37,20 @@ def draw_nodes_edges(group: Group, param: dict, infos, link_type: str='ellipse')
     G = nx.Graph()
     
     #Nodes
-    G.add_nodes_from(idx1, galaxy=True)
-    G.add_nodes_from(idx2, galaxy=False)
+    G.add_nodes_from(idx1, galaxy=False)
+    G.add_nodes_from(idx2, galaxy=True)
 
     if link_type == 'ellipse':
     #Edges
+        e_params = ['A', 'B', 'C', 'D', 'E', 'F']
         for i,j in combinations(G, 2):
-            if ellipses.is_overlapping(param[i], param[j]):
+            if ellipses.is_overlapping(param.loc[i][e_params], param.loc[j][e_params]):
                 G.add_edges_from([(j, i)])
 
     else:
+        g_params = ['RA', 'DEC', 'A', 'B', 'THETA']
         for i,j in combinations(G, 2):
-            gauss_overlap = gaussians.gaussian_overlap(infos[i], infos[j])
+            gauss_overlap = gaussians.gaussian_overlap(infos.loc[i][g_params], infos.loc[j][g_params])
             if gauss_overlap > 1e-2:
                 G.add_edges_from([(j, i)])
 
@@ -59,6 +63,8 @@ def add_magnitude(G, cat1: FCatalog, cat2: FCatalog, params: dict ):
 
     Args:
         G (NetworkX graph): NetworkX graph corresponding to one Friends-of-Friends group
+        cat1 (FCatalog): Ground Catalog
+        cat2 (FCatalog): Space Catalog
 
     Returns:
         None
@@ -68,17 +74,17 @@ def add_magnitude(G, cat1: FCatalog, cat2: FCatalog, params: dict ):
 
     if len(gal_nodes) == 0:
         for m in obj_nodes:
-            G.nodes[m]['magnitude'] = cat1.get_quantity(params['MAG1'], m)
+            G.nodes[m]['magnitude'] = cat1.get_quantity(params['MAG1'], m, ndx=True)
 
     elif len(obj_nodes) == 0:
         for n in gal_nodes:
-            G.nodes[n]['magnitude'] = cat2.get_quantity(params['MAG2'], n)
+            G.nodes[n]['magnitude'] = cat2.get_quantity(params['MAG2'], n, ndx=True)
 
     else: 
         for n in gal_nodes:
-            G.nodes[n]['magnitude'] = cat2.get_quantity(params['MAG2'], n)
+            G.nodes[n]['magnitude'] = cat2.get_quantity(params['MAG2'], n, ndx=True)
         for m in obj_nodes:
-            G.nodes[m]['magnitude'] = cat1.get_quantity(params['MAG1'], m)
+            G.nodes[m]['magnitude'] = cat1.get_quantity(params['MAG1'], m, ndx=True)
     
     return None
 
@@ -99,7 +105,7 @@ def add_blendedness(G, cat1: FCatalog, params: dict):
 
     if len(obj_nodes) > 0:
         for m in obj_nodes:
-            G.nodes[m]['blendedness'] = cat1.get_quantity(params['BLENDEDNESS1'], m)
+            G.nodes[m]['blendedness'] = cat1.get_quantity(params['BLENDEDNESS1'], m, ndx=True)
 
     else:
         return None
@@ -123,6 +129,7 @@ def add_purity(G, infos: dict):
 
     gal_nodes = [i for i in G if G.nodes[i]['galaxy']==True]
     obj_nodes = [i for i in G if G.nodes[i]['galaxy']==False]
+    info_names = ['RA', 'DEC', 'A', 'B', 'THETA']
 
     if len(gal_nodes) == 0:
         if len(obj_nodes) == 1:
@@ -130,12 +137,12 @@ def add_purity(G, infos: dict):
 
         else:
             for n in obj_nodes:
-                infos1 = infos[n]
+                infos1 = infos.loc[n][info_names]
                 int_ = [gaussians.gaussian_square_int(infos1)]
                 
                 for c in list(G.adj[n]):
                     if G.nodes[c]['galaxy']==False:
-                        infos2 = infos[c]
+                        infos2 = infos.loc[c][info_names]
                         int_.append(gaussians.gaussian_overlap(infos1, infos2))
                 
                 purity = int_[0]/np.sum(int_)
@@ -147,12 +154,12 @@ def add_purity(G, infos: dict):
 
         else:
             for n in gal_nodes:
-                infos1 = infos[n]
+                infos1 = infos.loc[n][info_names]
                 int_ = [gaussians.gaussian_square_int(infos1)]
                 
                 for c in list(G.adj[n]):
                     if G.nodes[c]['galaxy']==True:
-                        infos2 = infos[c]
+                        infos2 = infos.loc[c][info_names]
                         int_.append(gaussians.gaussian_overlap(infos1, infos2))
                 
                 purity = int_[0]/np.sum(int_)
@@ -162,12 +169,12 @@ def add_purity(G, infos: dict):
     else:
         for flag in [True, False]:
             for n in [i for i in G if G.nodes[i]['galaxy']==flag]:
-                infos1 = infos[n]
+                infos1 = infos.loc[n][info_names]
                 int_ = [gaussians.gaussian_square_int(infos1)]
                 
                 for c in list(G.adj[n]):
                     if G.nodes[c]['galaxy']==flag:
-                        infos2 = infos[c]
+                        infos2 = infos.loc[c][info_names]
                         int_.append(gaussians.gaussian_overlap(infos1, infos2))
                 
                 purity = int_[0]/np.sum(int_)
@@ -191,17 +198,19 @@ def add_overlap_fraction(G, e_conic, e_params, link_type='ellipse', eps=1):
         None
     """
     if link_type == 'ellipse':
+        conic_names = ['A', 'B', 'C', 'D', 'E', 'F']
         if G.number_of_edges() > 0:
             for i, j, data in G.edges(data=True):
     
                 #overlap fraction on the corresponded edges
-                x_center = np.mean([infos[i]['RA'], infos[j]['RA']]) #x mean position of the two ellipses
-                y_center = np.mean([infos[i]['DEC'], infos[j]['DEC']]) #y mean position of the two ellipses
+                x_center = np.mean([e_params.loc[i]['RA'], e_params.loc[j]['RA']]) #x mean position of the two ellipses
+                y_center = np.mean([e_params.loc[i]['DEC'], e_params.loc[j]['DEC']]) #y mean position of the two ellipses
 
                 # x_center = np.mean([infos[i][0], infos[j][0]]) #x mean position of the two ellipses
                 # y_center = np.mean([infos[i][1], infos[j][1]]) #y mean position of the two ellipses
     
-                A_total, A_overlap = ellipses.overlap_area_MC(e_conic[i], e_conic[j], [x_center-eps, x_center+eps], [y_center-eps, y_center+eps])
+                A_total, A_overlap = ellipses.overlap_area_MC(e_conic.loc[i][conic_names], e_conic.loc[j][conic_names],
+                                                              [x_center-eps, x_center+eps], [y_center-eps, y_center+eps])
                 fraction = A_overlap/A_total
                 G[i][j]['overlap_fraction'] = fraction
 
@@ -214,7 +223,7 @@ def add_overlap_fraction(G, e_conic, e_params, link_type='ellipse', eps=1):
     
     return None
 
-def NetworkX_graph(group: list, truth_cat, obj_cat, infos: dict, param: dict, link_type: str='ellipse'):
+def NetworkX_graph(group: list, truth_cat, obj_cat, infos: dict, param: dict, naming_params: dict, link_type: str='ellipse', blend=True):
     """
     Constructs a NetworkX graph representing the relationships between detected objects and
     true galaxies in a given group.
@@ -231,9 +240,12 @@ def NetworkX_graph(group: list, truth_cat, obj_cat, infos: dict, param: dict, li
         x, y, a, b, theta information of the ellipses
     param : dict
         A, B, C, D, E, F ellipse parameters
+    naming_params: dict
+        Column names in FCatalogs for subprocesses
     link_type : str, optional
         Overlap definition. 'ellipse' for the overlap between two ellipses, otherwise the overlap between two 2D Gaussian distributions.
         Default is `'ellipse'`.
+
 
     Returns
     -------
@@ -254,8 +266,10 @@ def NetworkX_graph(group: list, truth_cat, obj_cat, infos: dict, param: dict, li
     G = draw_nodes_edges(group, param, infos, link_type=link_type)
     
     #Add magnitude and blendedness
-    add_magnitude(G, truth_cat, obj_cat)
-    add_blendedness(G, obj_cat)
+    # add_magnitude(G, truth_cat, obj_cat, naming_params)
+    add_magnitude(G, obj_cat, truth_cat, naming_params)
+    if blend:
+        add_blendedness(G, obj_cat, naming_params)
     
     #Add purity
     add_purity(G, infos)
@@ -289,7 +303,25 @@ def refine_groups(G):
     
     return refined_graphs
 
+def f_group2graph(group, truth_data, object_data, link_type='ellipse'):
+    ellipseinfo_params = {'RA1': 'coord_ra', 'DEC1': 'coord_dec', 'A1': 'A_moment', 'B1': 'B_moment', 'THETA1':'THETA_moment',
+                      'RA2': 'RA', 'DEC2': 'DEC', 'A2': 'A_ARCSEC', 'B2': 'B_ARCSEC', 'THETA2':'THETA_IMAGE'}
 
+    obj_infos = ellipses.ellipse_infos(group, object_data, truth_data, ellipseinfo_params)
+    obj_params = [ellipses.ellipse_parameters(oi) for oi in obj_infos]
+
+    all_infos = vstack(obj_infos)
+    all_infos.add_index('ID')
+    all_params = vstack(obj_params)
+    all_params.add_index('ID')
+
+    graph_params = {'MAG1': 'i_mag', 'MAG2': 'F814_MAG', 'BLENDEDNESS1': 'i_blendedness'}
+    g_t = NetworkX_graph(group, truth_data, object_data, all_infos, all_params, naming_params=graph_params, link_type='ellipse')
+
+    S = refine_groups(g_t)
+    for s in S:
+        entropy.blending_entropy(s)
+    return S
 
 def group2graph(group, truth_data, object_data, link_type='ellipse'):
     """
