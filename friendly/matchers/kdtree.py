@@ -32,6 +32,7 @@ class FKDTree(Matcher):
         space_results = tree1.query_ball_tree(tree2, r=self.radius)
         ground_results = tree1.query_ball_tree(tree1, r=self.radius) 
 
+
         groups = []
         weights = []
         for gr, sr in zip(ground_results, space_results):
