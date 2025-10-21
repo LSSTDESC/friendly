@@ -1,6 +1,7 @@
 from ..pruner import Pruner
 from ..utils import Group
 
+from collections.abc import Iterable
 import numpy as np
 
 class MagDiffPruner(Pruner):
@@ -32,8 +33,15 @@ class MagDiffPruner(Pruner):
 
             space_cut1 = space_mags < self.space_mag_limit # The objects we want to keep
             space_cut2 = (space_mags - space_mags.min()) < 2 # The objects we want to keep
-            space_filt = np.logical_and(space_cut1, space_cut2)
+            space_filt = space_cut1 & space_cut2
+            if not isinstance(space_filt, Iterable):
+                space_filt = [space_filt]
             new_space_idx = apply_bool_list(group.idx2, space_filt)
+
+            # if type(space_filt) is np.bool:
+            #     new_space_idx = group.idx2 if space_filt else []
+            # else:
+            #     new_space_idx = apply_bool_list(group.idx2, space_filt)
             
             pruned_groups.append(Group(new_ground_idx, new_space_idx))
 

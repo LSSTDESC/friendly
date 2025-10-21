@@ -45,25 +45,34 @@ class FEllipse(Matcher):
         groups = []
         weights = []
         gndx = np.arange(len(ground_results))
+        gndx_names = cat1.get_quantity(cat1.ndx_name)
+        sndx_names = cat2.get_quantity(cat2.ndx_name)
         for gr, sr, gn in zip(ground_results, space_results, gndx):
             g_start = gn
-            ground_group = []
+            start_name = gndx_names[gn]
+            ground_group = [start_name]
             space_group = []
 
             e1_start = ellipse1[:, g_start]
+            if gn==30714:
+                print("starting ellipse params", e1_start)
 
             if np.isnan(e1_start).any():
+                print(f"Skipping {gn}")
                 groups.append(Group(ground_group, space_group))
                 weights.append([1 for i in range(len(space_group))]) 
                 continue
 
             if len(gr) >= 1:
                 for i, g_ndx in enumerate(gr):
+                    if g_ndx == g_start:
+                        continue
                     e2 = ellipse1[:, g_ndx]
                     if np.isnan(e2).any():
                         continue
                     if is_overlapping(e1_start, e2):
-                        ids = cat1.get_quantity(cat1.ndx_name, g_ndx)
+                        # ids = cat1.get_quantity(cat1.ndx_name, g_ndx)
+                        ids = gndx_names[g_ndx]
                         clean_ids = FEllipse.cast_int(ids)
                         ground_group.append(clean_ids)
 
@@ -74,7 +83,8 @@ class FEllipse(Matcher):
                     if np.isnan(e2).any():
                         continue
                     if is_overlapping(e1_start, e2):
-                        ids = cat2.get_quantity(cat2.ndx_name, s_ndx)
+                        # ids = cat2.get_quantity(cat2.ndx_name, s_ndx)
+                        ids = sndx_names[s_ndx]
                         clean_ids = FEllipse.cast_int(ids)
                         space_group.append(clean_ids)
 
