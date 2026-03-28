@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+from .utils import Group, FCatalog
+from astropy.table import Table
 
 def ellipse_equation(x: float, y: float, param: dict) -> float:
     """
@@ -19,6 +21,24 @@ def ellipse_equation(x: float, y: float, param: dict) -> float:
     
     return A*x**2 + B*y**2 + 2*C*x*y + 2*D*x + 2*E*y + F
 
+
+def ellipse_lambda(param: dict) -> float:
+    """
+    Returns a lambda function to evaluates the equation of an ellipse with specified A, B, C, D, E, F ellipse 
+    parameters.
+
+    Args:
+        param (dict): A, B, C, D, E, F ellipse parameters.
+
+    Returns:
+        lambda: f(x,y) to evaluate the ellipse equation
+    """
+    
+    A, B, C, D, E, F = param
+
+    fn = lambda x,y : A*x**2 + B*y**2 + 2*C*x*y + 2*D*x + 2*E*y + F
+    
+    return fn
 
 def moments2ab(Ixx: float, Iyy: float, Ixy: float) -> list:
     """
@@ -46,41 +66,46 @@ def moments2ab(Ixx: float, Iyy: float, Ixy: float) -> list:
     
     return [np.sqrt(a_squared), np.sqrt(b_squared), np.degrees(theta)]
 
-
-def ellipse_infos(group: list, truth_cat: dict, obj_cat: dict, dc2_type: str="object") -> dict:
+def ellipse_infos(group: list, cat1: FCatalog, cat2: FCatalog, params: dict) -> dict:
     """
-    Recover the pixel position centre (x, y), the major axis (a), minor axis (b) and orientation
+    Recover the sky position centre (x, y), the major axis (a), minor axis (b) and orientation
     angle (theta) of the galaxy or object ellipses.
 
     Args:
         group (list): Friends-of-Friends group
-        truth_cat (dict): Truth (galaxy) catalog
-        obj_cat (dict): Object catalog
-        dc2_type (str, optional): "galaxy" or "object". Defaults to "object".
-
+        cat1 (FCatalog): Friendly Catalog of "ground" objects
+        cat2 (FCatalog): Friendly Catalog of "truth" objects
+        params (dict): Dictionary labelling the objects in cat1 and cat2
     Returns:
-        dict: Pandas Dataframe containing the x, y, a, b (in pixels) and theta (in degrees) ellipse parameters.
+        dict: Dictionary containing the x, y, a, b (in arcseconds) and theta (in degrees) ellipse parameters.
     """
-    keys = ['x', 'y', 'a', 'b', 'theta']
-    infos = {k:[] for k in keys}
-    
-    if dc2_type == 'galaxy':
-        idx = group[0]
-        psf = PSF(group, obj_cat)
-        out = deg2pix(group, truth_cat, obj_cat, psf)
-        infos = {k:j for (k,j) in zip(keys, out)}
+    keys = ['RA', 'DEC', 'A', 'B', 'THETA']
+    infos1 = {k:[] for k in keys}
+    infos2 = {k:[] for k in keys}
 
-    if dc2_type == 'object':
-        idx = group[1]
-        infos['x'] = obj_cat['x'][idx]
-        infos['y'] = obj_cat['y'][idx]
-        infos['a'], infos['b'], infos['theta'] = moments2ab(obj_cat['Ixx_pixel_i'][idx], 
-                                                            obj_cat['Iyy_pixel_i'][idx], obj_cat['Ixy_pixel_i'][idx])
+    # Need to enforce these as integers (maybe on matching side...)
+    infos1['ID'] = group.idx1
+    infos2['ID'] = group.idx2
 
-    return pd.DataFrame(infos, index=idx)
+    for idx1 in group.idx1:
+        for k in keys:
+            infos1[k].append(cat1.get_quantity(params[k+'1'], idx1, ndx=True))
 
+    for idx2 in group.idx2:
+        for k in keys:
+            infos2[k].append(cat2.get_quantity(params[k+'2'], idx2, ndx=True))
 
-def ab2AB(x: float, y: float, a: float, b: float, theta: float) -> list:
+    # Extremely clunky and inelegant way to get this into numpy arrays....
+    # for k in keys:
+    #     infos1[k] = np.array(infos1[k]) 
+    #     infos2[k] = np.array(infos2[k]) 
+
+    infos1 = Table(infos1)
+    infos2 = Table(infos2)
+
+    return infos1, infos2
+
+def ab2AB(x: float, y: float, a: float, b: float, theta: float, sky=False) -> list:
     """
     Convert the major axis (a), minor axis (b) and orientation angle (theta) into A, B, C, D, E, F ellipse parameters.
 
@@ -100,6 +125,8 @@ def ab2AB(x: float, y: float, a: float, b: float, theta: float) -> list:
     A = (a*sin)**2 + (b*cos)**2
     B = (a*cos)**2 + (b*sin)**2
     C = 2*(b**2 - a**2)*sin*cos
+    if sky:
+        C *= -1
     D = -2*A*x - C*y
     E = -C*x - 2*B*y
     F = A*x**2 + C*x*y + B*y**2 - (a*b)**2
@@ -107,8 +134,36 @@ def ab2AB(x: float, y: float, a: float, b: float, theta: float) -> list:
     
     return [A, B, C, D, E, F]
 
+def ab2AB_np(x: float, y: float, a: float, b: float, theta: float, sky=False):
+    """
+    Convert the major axis (a), minor axis (b) and orientation angle (theta) into A, B, C, D, E, F ellipse parameters.
 
-def ellipse_parameters(infos: dict) -> dict:
+    Args:
+        x (float): x-axis position of the ellipse center (in pixels)
+        y (float): y-axis position of the ellipse center (in pixels)
+        a (float): major axis (in pixels)
+        b (float): minor axis (in pixels)
+        theta (float): orientation angle (in degrees)
+
+    Returns:
+        numpy array: A, B, C, D, E, F ellipse parameters.
+    """
+    sin = np.sin(np.radians(theta))
+    cos = np.cos(np.radians(theta))
+    
+    A = (a*sin)**2 + (b*cos)**2
+    B = (a*cos)**2 + (b*sin)**2
+    C = 2*(b**2 - a**2)*sin*cos
+    if sky:
+        C *= -1
+    D = -2*A*x - C*y
+    E = -C*x - 2*B*y
+    F = A*x**2 + C*x*y + B*y**2 - (a*b)**2
+    C, D, E = C/2, D/2, E/2
+    
+    return np.array([A, B, C, D, E, F])
+
+def ellipse_parameters(infos: dict, sky = True) -> dict:
     """
     Return the A, B, C, D, E, F ellipse parameters, based on the x, y, a, b, theta ellipse provided information.
 
@@ -118,11 +173,14 @@ def ellipse_parameters(infos: dict) -> dict:
     Returns:
         dict: Pandas Dataframe containing A, B, C, D, E, F ellipse parameters.
     """
-    out = pd.DataFrame(ab2AB(infos['x'], infos['y'], infos['a'], infos['b'], infos['theta']))
-    out.index = ['A', 'B', 'C', 'D', 'E', 'F']
-    
-    return out.T
+    e_params = ab2AB_np(infos['RA'], infos['DEC'], infos['A'], infos['B'],infos['THETA'], sky=sky)
 
+    out = Table(e_params.T, names=['A', 'B', 'C', 'D', 'E', 'F'] )
+    out['ID'] = infos['ID']
+
+    out.add_index('ID')
+    
+    return out
 
 def PSF(group: list, cat: dict) -> float:
     """
@@ -209,6 +267,10 @@ def is_overlapping(p1: dict, p2: dict) -> bool:
         bool: Returns "True" if the two ellipses overlap, "False" otherwise.
     """
     
+    # Need to find a fix for this step....
+    # if (np.isnan(p1)).any() or (np.isnan(p2)).any():
+     #    return False
+
     A1, B1, C1, D1, E1, F1 = p1
     A2, B2, C2, D2, E2, F2 = p2
         

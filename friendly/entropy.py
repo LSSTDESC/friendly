@@ -71,6 +71,5 @@ def blending_entropy(G):
                         x.append(G[m][c]['overlap_fraction']*np.exp(-np.abs(G.nodes[m]['magnitude'] - G.nodes[c]['magnitude'])))
 
                 G.nodes[m]['proba'] = {gal:proba for gal, proba in zip(adj_gal, x/np.sum(x))}
-                G.nodes[m]['blending_entropy'] = entropy_simplex(x)
-            
+                G.nodes[m]['blending_entropy'] = entropy_simplex(x)            
     return None
